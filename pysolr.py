@@ -1200,6 +1200,7 @@ class SolrCloud(Solr):
 
     def __init__(self, zookeeper, collection, decoder=None, timeout=60, retry_timeout=0.2, auth=None, verify=True,
                  *args, **kwargs):
+        zookeeper.updateCollections(collection)
         url = zookeeper.getRandomURL(collection)
         self.auth = auth
         self.verify = verify
@@ -1283,8 +1284,9 @@ class ZooKeeper(object):
             if not data:
                 LOG.warning("No cluster state available: no collections defined?")
             else:
-                self.collections = json.loads(data.decode('utf-8'))
-                LOG.info('Updated collections: %s', self.collections)
+                collection_cluster = json.loads(data.decode('utf-8'))
+                self.collections.update(collection_cluster)
+                LOG.info('Updated collections: %s', collection_cluster)
 
         @self.zk.ChildrenWatch(ZooKeeper.LIVE_NODES_ZKNODE)
         def watchLiveNodes(children):
@@ -1303,6 +1305,21 @@ class ZooKeeper(object):
             else:
                 self.aliases = None
             LOG.info("Updated aliases: %s", self.aliases)
+
+
+    def updateCollections(self, collname):
+        collection_state = self.solr_znode + '/collections/' + collname + '/state.json'
+        @self.zk.DataWatch(collection_state)
+        def watchClusterState(data, *args, **kwargs):
+            if not data:
+                LOG.warning("No state available for collection %s: no collections defined?", collname)
+            else:
+                coll = json.loads(data.decode('utf-8'))
+                self.collections.update(coll)
+                LOG.info('Updated collections with collection: %s', collname)
+
+        
+
 
     def getHosts(self, collname, only_leader=False, seen_aliases=None):
         if self.aliases and collname in self.aliases:
