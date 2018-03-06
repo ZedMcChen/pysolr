@@ -312,7 +312,7 @@ class Solr(object):
 
     """
     def __init__(self, url, decoder=None, timeout=60, results_cls=Results, search_handler='select', use_qt_param=False,
-                 auth=None, verify=True):
+                 auth=None, verify=True, proxies={'http': None, 'https': None}):
         self.decoder = decoder or json.JSONDecoder()
         self.url = url
         self.timeout = timeout
@@ -323,6 +323,7 @@ class Solr(object):
         self.use_qt_param = use_qt_param
         self.auth = auth
         self.verify = verify
+        self.proxies = proxies
 
     def get_session(self):
         if self.session is None:
@@ -373,7 +374,7 @@ class Solr(object):
             bytes_body = force_bytes(body)
         try:
             resp = requests_method(url, data=bytes_body, headers=headers, files=files,
-                                   timeout=self.timeout, auth=self.auth)
+                                   timeout=self.timeout, auth=self.auth, proxies=self.proxies)
         except requests.exceptions.Timeout as err:
             error_message = "Connection to server '%s' timed out: %s"
             self.log.error(error_message, url, err, exc_info=True)
@@ -1198,14 +1199,15 @@ def sanitize(data):
 
 class SolrCloud(Solr):
 
-    def __init__(self, zookeeper, collection, decoder=None, timeout=60, retry_timeout=0.2, auth=None, verify=True,
+    def __init__(self, zookeeper, collection, decoder=None, timeout=60, retry_timeout=0.2, auth=None, verify=True, proxies={'http': None, 'https': None},
                  *args, **kwargs):
         zookeeper.updateCollections(collection)
         url = zookeeper.getRandomURL(collection)
         self.auth = auth
         self.verify = verify
+        self.proxies = proxies
 
-        super(SolrCloud, self).__init__(url, decoder=decoder, timeout=timeout, auth=self.auth, verify = self.verify,
+        super(SolrCloud, self).__init__(url, decoder=decoder, timeout=timeout, auth=self.auth, verify = self.verify, proxies=self.proxies,
                                         *args, **kwargs)
 
         self.zookeeper = zookeeper
