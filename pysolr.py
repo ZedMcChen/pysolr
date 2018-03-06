@@ -1237,9 +1237,6 @@ class SolrCloud(Solr):
 
 class ZooKeeper(object):
     # Constants used by the REST API:
-    LIVE_NODES_ZKNODE = '/live_nodes'
-    ALIASES = '/aliases.json'
-    CLUSTER_STATE = '/clusterstate.json'
     SHARDS = 'shards'
     REPLICAS = 'replicas'
     STATE = 'state'
@@ -1250,11 +1247,16 @@ class ZooKeeper(object):
     FALSE = 'false'
     COLLECTION = 'collection'
 
-    def __init__(self, zkServerAddress, timeout=15, max_retries=-1, kazoo_client=None):
+    def __init__(self, zkServerAddress, solr_znode='', timeout=15, max_retries=-1, kazoo_client=None):
         if KazooClient is None:
             logging.error('ZooKeeper requires the `kazoo` library to be installed')
             raise RuntimeError
+ 
+        ZooKeeper.LIVE_NODES_ZKNODE = solr_znode + '/live_nodes'
+        ZooKeeper.ALIASES = solr_znode + '/aliases.json'
+        ZooKeeper.CLUSTER_STATE = solr_znode + '/clusterstate.json'
 
+        self.solr_znode = solr_znode
         self.collections = {}
         self.liveNodes = {}
         self.aliases = {}
