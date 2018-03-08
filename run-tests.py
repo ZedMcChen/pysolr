@@ -24,7 +24,7 @@ def main():
     try:
         unittest.main(module='tests', verbosity=1)
     finally:
-        print('Tests complete; halting Solr servers…')
+        print('Tests complete; halting Solr servers…'.encode('utf-8'))
         test_utils.stop_solr()
 
 if __name__ == "__main__":

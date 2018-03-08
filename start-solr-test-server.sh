@@ -7,7 +7,7 @@ if [ ! -t 0 ]; then
     exec 1>test-solr.stdout.log 2>test-solr.stderr.log
 fi
 
-SOLR_VERSION=4.10.4
+SOLR_VERSION=6.6.0
 
 ROOT=$(cd `dirname $0`; pwd)
 APP=$ROOT/solr-app
@@ -47,8 +47,8 @@ function prepare_solr_home() {
     echo "Preparing SOLR_HOME at $SOLR_HOME for host $HOST"
     APP=$(pwd)/solr-app
     mkdir -p ${SOLR_HOME}
-    cp solr-app/example/solr/solr.xml ${SOLR_HOME}/
-    cp solr-app/example/solr/zoo.cfg ${SOLR_HOME}/
+    cp solr-app/server/solr/solr.xml ${SOLR_HOME}/
+    cp solr-app/server/solr/zoo.cfg ${SOLR_HOME}/
 }
 
 function prepare_core() {
@@ -60,7 +60,7 @@ function prepare_core() {
     CORE_DIR=${SOLR_HOME}/${CORE}
     mkdir -p ${CORE_DIR}
 
-    cp -r solr-app/example/solr/collection1/conf ${CORE_DIR}/
+    cp -r solr-app/server/solr/configsets/sample_techproducts_configs/conf ${CORE_DIR}/
     perl -p -i -e 's|<lib dir="../../../contrib/|<lib dir="$APP/contrib/|'g ${CORE_DIR}/conf/solrconfig.xml
     perl -p -i -e 's|<lib dir="../../../dist/|<lib dir="$APP/dist/|'g ${CORE_DIR}/conf/solrconfig.xml
 
@@ -70,13 +70,23 @@ function prepare_core() {
     echo "name=${CORE}" > ${CORE_DIR}/core.properties
 }
 
+function create_zk_solr_node() {
+    ZKHOST=$1
+    solr_node=$2
+    APP=${ROOT}/solr-app
+
+    echo "Creating solr node on the ZooKeeper at $ZKHOST"
+    $APP/server/scripts/cloud-scripts/zkcli.sh -zkhost ${ZKHOST} -cmd clear $solr_node >> $LOGS/upload.log 2>&1
+    $APP/server/scripts/cloud-scripts/zkcli.sh -zkhost ${ZKHOST} -cmd makepath $solr_node >> $LOGS/upload.log 2>&1
+}
+
 function upload_configs() {
     ZKHOST=$1
     CONFIGS=$2
     APP=${ROOT}/solr-app
 
     echo "Uploading $CONFIGS configs to ZooKeeper at $ZKHOST"
-    $APP/example/scripts/cloud-scripts/zkcli.sh -cmd upconfig -confdir ${CONFIGS} -confname config -zkhost ${ZKHOST} >> $LOGS/upload.log 2>&1
+    $APP/server/scripts/cloud-scripts/zkcli.sh -cmd upconfig -confdir ${CONFIGS} -confname config -zkhost ${ZKHOST} >> $LOGS/upload.log 2>&1
 }
 
 function wait_for() {
@@ -102,7 +112,8 @@ function create_collection() {
     NODES=$3
     echo "Creating collection $COLLECTION on nodes $NODES"
     URL="http://localhost:${PORT}/solr/admin/collections?action=CREATE&name=${COLLECTION}&numShards=1&replicationFactor=2&collection.configName=config&createNodeSet=${NODES}"
-    curl -s $URL > $LOGS/create-$COLLECTION.log
+    echo "$URL" >> $LOGS/create-$COLLECTION.log
+    curl -s $URL >> $LOGS/create-$COLLECTION.log
 }
 
 function start_solr() {
@@ -114,10 +125,12 @@ function start_solr() {
     echo "Starting server from ${SOLR_HOME} on port ${PORT}"
     # We use exec to allow process monitors to correctly kill the
     # actual Java process rather than this launcher script:
-    export CMD="java -Djetty.port=${PORT} -Dsolr.install.dir=${APP} -Djava.awt.headless=true -Dapple.awt.UIElement=true -Dhost=localhost -Dsolr.solr.home=${SOLR_HOME} ${ARGS} -jar start.jar"
-    pushd $APP/example > /dev/null
+    export CMD="java -Djetty.port=${PORT} -Dsolr.install.dir=${APP} -Dsolr.solr.home=${SOLR_HOME} -Dsolr.log.dir=$LOGS -Dhost=localhost ${ARGS} -jar start.jar  --module=http"
+    pushd $APP/server > /dev/null
 
-    exec $CMD >$LOGS/solr-$NAME.log &
+    pwd >$LOGS/solr-$NAME.log
+    echo "$CMD" >>$LOGS/solr-$NAME.log
+    exec $CMD >>$LOGS/solr-$NAME.log &
     echo $! >> ${PIDS}
 
     popd > /dev/null
@@ -186,6 +199,8 @@ while [ $# -gt 0 ]; do
 
         start_solr $ROOT/solr/cloud-zk-node 8992 zk -DzkRun
         wait_for ZooKeeper 8992
+	
+        #create_zk_solr_node localhost:9992
         upload_configs localhost:9992 $ROOT/solr/cloud-configs/cloud/conf
 
         start_solr $ROOT/solr/non-cloud 8983 non-cloud

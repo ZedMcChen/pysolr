@@ -472,7 +472,7 @@ class SolrTestCase(unittest.TestCase):
         self.assertTrue('explain' in results.debug)
         self.assertEqual(results.highlighting, {u'doc_4': {}, u'doc_2': {}, u'doc_1': {}})
         self.assertEqual(results.spellcheck, {})
-        self.assertEqual(results.facets['facet_fields']['popularity'], ['10', 2, '7', 1, '2', 0, '8', 0])
+        self.assertEqual(results.facets['facet_fields']['popularity'], ['10', 2, '7', 1])
         self.assertTrue(results.qtime is not None)
         # TODO: Can't get these working in my test setup.
         # self.assertEqual(results.grouped, '')
@@ -626,6 +626,7 @@ class SolrTestCase(unittest.TestCase):
                       boost={'title': 0})
 
         res = self.solr.search('doc')
+        print(res.docs)
         self.assertEqual(len(res), 5)
         self.assertEqual('doc_6', res.docs[0]['id'])
 
