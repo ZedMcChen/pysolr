@@ -995,6 +995,28 @@ class Solr(object):
 
         return self._update(msg, commit=commit, waitFlush=waitFlush, waitSearcher=waitSearcher, handler=handler)
 
+    def dih(self, command='full-import', clean=True, handler='dataimport/dih', **kwargs):
+        """
+        Runs dih handler to import data
+        """
+        params = {
+            "command": command,
+            "clean": clean
+        }
+        params.update(kwargs)
+
+        try:
+            # We'll provide the file using its true name as Tika may use that
+            # as a file type hint:
+            resp = self._send_request('post', handler,
+                                      body=params)
+        except (IOError, SolrError) as err:
+            self.log.error("Failed to run dih handler %s: %s", (handler, err),
+                           exc_info=True)
+            raise
+
+        return resp
+
     def extract(self, file_obj, extractOnly=True, handler='update/extract', **kwargs):
         """
         POSTs a file to the Solr ExtractingRequestHandler so rich content can
