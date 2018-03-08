@@ -626,7 +626,6 @@ class SolrTestCase(unittest.TestCase):
                       boost={'title': 0})
 
         res = self.solr.search('doc')
-        print(res.docs)
         self.assertEqual(len(res), 5)
         self.assertEqual('doc_6', res.docs[0]['id'])
 
