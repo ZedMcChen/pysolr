@@ -1017,6 +1017,43 @@ class Solr(object):
 
         return resp
 
+    def update_schema(self, payload, handler='schema'):
+        """
+        Runs update schema to update collection schema
+        """
+
+        try:
+            # We'll provide the file using its true name as Tika may use that
+            # as a file type hint:
+            resp = self._send_request('post', handler,
+                                      body=payload)
+        except (IOError, SolrError) as err:
+            self.log.error("Failed to run update schema handler %s: %s", (handler, err),
+                           exc_info=True)
+            raise
+
+        return resp
+
+    def query_schema(self, handler='schema/fields', **kwargs):
+        """
+        Runs query schema to retrieve collection schema info
+        """
+
+        params = {'wt':'json'}
+        params.update(kwargs)
+        
+        try:
+            # We'll provide the file using its true name as Tika may use that
+            # as a file type hint:
+            resp = self._send_request('get', handler,
+                                      body=params)
+        except (IOError, SolrError) as err:
+            self.log.error("Failed to run query schema handler %s: %s", (handler, err),
+                           exc_info=True)
+            raise
+
+        return json.loads(resp)
+
     def extract(self, file_obj, extractOnly=True, handler='update/extract', **kwargs):
         """
         POSTs a file to the Solr ExtractingRequestHandler so rich content can
@@ -1388,7 +1425,9 @@ class ZooKeeper(object):
         hosts = self.getHosts(collname, only_leader=only_leader)
         if not hosts:
             raise SolrError('ZooKeeper returned no active shards!')
-        return '%s/%s' % (random.choice(hosts), collname)
+        solrHost = '%s/%s' % (random.choice(hosts), collname)
+        LOG.info('Using Solr host: %s', solrHost)
+        return solrHost
 
     def getLeaderURL(self, collname):
         return self.getRandomURL(collname, only_leader=True)
