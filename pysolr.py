@@ -1309,7 +1309,7 @@ class ZooKeeper(object):
     FALSE = 'false'
     COLLECTION = 'collection'
 
-    def __init__(self, zkServerAddress, solr_znode='', timeout=15, max_retries=-1, kazoo_client=None):
+    def __init__(self, zkServerAddress, solr_znode='', timeout=15, max_retries=-1, kazoo_client=None, zk_user=None, zk_password=None):
         if KazooClient is None:
             logging.error('ZooKeeper requires the `kazoo` library to be installed')
             raise RuntimeError
@@ -1325,7 +1325,12 @@ class ZooKeeper(object):
         self.state = None
 
         if kazoo_client is None:
+            if zk_user is not None and zk_password is not None:
+                auth = [('digest', '{}:{}'.format(zk_user, zk_password))]
+            else:
+                auth = None
             self.zk = KazooClient(zkServerAddress, read_only=True, timeout=timeout,
+                                  auth_data=auth,
                                   command_retry={'max_tries': max_retries},
                                   connection_retry={'max_tries': max_retries})
         else:
